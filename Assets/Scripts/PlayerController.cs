@@ -21,7 +21,7 @@ public class PlayerController : MonoBehaviour {
     }
 
     void Update () {
-        ManageGravity();
+        ManageFalling();
         ManageInput();
         ManageCamera();
 	}
@@ -135,11 +135,22 @@ public class PlayerController : MonoBehaviour {
         cam.transform.position = new Vector3(vec.x, cam.transform.position.y, vec.z);
     }
 
-    void ManageGravity() {
+    /** Manage death case where player falls off the map.
+     */
+    void ManageFalling() {
         if (canMove && !moving && IsDirectionClear("below")) {
-            canMove = false;
-            playerCube.GetComponent<Rigidbody>().useGravity = true;
-            playerCube.GetComponent<Rigidbody>().isKinematic = false;
+            StartCoroutine(ManageFallingCoroutine());
         }
+    }
+
+    IEnumerator ManageFallingCoroutine() {
+        canMove = false;
+        playerCube.GetComponent<Rigidbody>().useGravity = true;
+        playerCube.GetComponent<Rigidbody>().isKinematic = false;
+        print(playerCube);
+        iTween.FadeTo(playerCube, 0, 3f);
+        yield return new WaitForSeconds(2);
+
+        GameManager.instance.PlayerFell();
     }
 }

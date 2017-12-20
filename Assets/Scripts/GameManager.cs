@@ -58,7 +58,7 @@ public class GameManager : MonoBehaviour {
 
         // Kick-start game.
         currentLevel = ChooseLevel();
-        SetupLevel(currentLevel);
+        SetupLevel();
     }
 
     /** Updates the canvas with proper values of health and depth.
@@ -66,6 +66,36 @@ public class GameManager : MonoBehaviour {
     void UpdateCanvas() {
         healthText.text = "Health: " + currentHealth;
         depthText.text = "Depth: " + currentDepth;
+    }
+
+    public void DamagePlayer() {
+        currentHealth -= 1;
+        UpdateCanvas();
+    }
+
+    void ResetPlayer() {
+        StartCoroutine(ResetPlayerCoroutine());
+    }
+
+    /** Resets camera to the spawn point.
+     */
+    void ResetCamera() {
+        Vector3 playerPosition = new Vector3(.5f, .5f, -.5f) + new Vector3(currentLevel.spawnX, 0, -currentLevel.spawnY);
+        cam.transform.position = playerPosition + cameraOffsetPos;
+        cam.transform.eulerAngles = cameraRotation;
+    }
+
+    IEnumerator ResetPlayerCoroutine() {
+        Destroy(player);
+        Vector3 playerPosition = new Vector3(.5f, .5f, -.5f) + new Vector3(currentLevel.spawnX, 0, -currentLevel.spawnY);
+        player = Instantiate(playerPrefab, playerPosition, Quaternion.identity);
+        player.GetComponent<PlayerController>().LinkCamera(cam);
+        iTween.FadeFrom(player, 0, tweenDuration);
+        iTween.MoveFrom(player, iTween.Hash("position", player.transform.position + new Vector3(0, tweenDistance, 0),
+                                            "time", tweenDuration,
+                                            "easetype", "easeOutQuart"));
+        yield return new WaitForSeconds(tweenDuration + .5f);
+        player.GetComponent<PlayerController>().canMove = true;
     }
 
     #region Level Setup/Cleanup
@@ -79,22 +109,20 @@ public class GameManager : MonoBehaviour {
     /** Given a level, loads it and spawns in the player.
      * 
      */
-    private void SetupLevel(Level level) {
-        StartCoroutine(SetupLevelCoroutine(level));
+    private void SetupLevel() {
+        StartCoroutine(SetupLevelCoroutine());
     }
 
-    private IEnumerator SetupLevelCoroutine(Level level) {
+    private IEnumerator SetupLevelCoroutine() {
         // Initialize.
-        buttonsRemaining = level.numButtons;
+        buttonsRemaining = currentLevel.numButtons;
 
         // Set up camera position.
-        Vector3 playerPosition = new Vector3(.5f, .5f, -.5f) + new Vector3(level.spawnX, 0, -level.spawnY);
-        cam.transform.position = playerPosition + cameraOffsetPos;
-        cam.transform.eulerAngles = cameraRotation;
+        ResetCamera();
 
         // Load in the level.
         Vector3 diffVec = new Vector3(0, tweenDistance, 0);
-        currentLevelObj = Instantiate(level.levelPrefab, diffVec, Quaternion.identity);
+        currentLevelObj = Instantiate(currentLevel.levelPrefab, diffVec, Quaternion.identity);
 
         // Tween the environment down.
         foreach (Transform child in currentLevelObj.transform.Find("Floor")) {
@@ -127,14 +155,7 @@ public class GameManager : MonoBehaviour {
         yield return new WaitForSeconds(tweenDuration + maxTweenDelay);
 
         // Spawn in the player, tween it down, enable movement.
-        player = Instantiate(playerPrefab, playerPosition, Quaternion.identity);
-        player.GetComponent<PlayerController>().LinkCamera(cam);
-        iTween.FadeFrom(player, 0, tweenDuration);
-        iTween.MoveFrom(player, iTween.Hash("position", player.transform.position + diffVec,
-                                            "time", tweenDuration,
-                                            "easetype", "easeOutQuart"));
-        yield return new WaitForSeconds(tweenDuration + .5f);
-        player.GetComponent<PlayerController>().canMove = true;
+        ResetPlayer();
     }
 
     #endregion
@@ -194,7 +215,7 @@ public class GameManager : MonoBehaviour {
 
         // Prepare next level.
         currentLevel = ChooseLevel();
-        SetupLevel(currentLevel);
+        SetupLevel();
     }
 
     /** A button was activated.
@@ -205,6 +226,14 @@ public class GameManager : MonoBehaviour {
             player.GetComponent<PlayerController>().canMove = false;
             LevelFinished();
         }
+    }
+
+    /** Player fell off the map.
+     */
+    public void PlayerFell() {
+        DamagePlayer();
+        ResetCamera();
+        ResetPlayer();
     }
 
     #endregion
